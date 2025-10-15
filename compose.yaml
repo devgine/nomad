@@ -1,0 +1,74 @@
+---
+services:
+  master_01:
+    hostname: mater-01
+    container_name: ${PROJECT_NAME}-mater-01
+    image: hashicorp/nomad:1.10
+    tty: true
+    cgroup: host
+    command: agent -config=/etc/nomad.d/nomad.hcl vault-tls-skip-verify=true
+    privileged: true
+    working_dir: /srv
+    extra_hosts:
+      - "${PROJECT_URL}:host-gateway"
+    environment:
+      NOMAD_ADDR: ${NOMAD_ADDR}
+      CONSUL_HTTP_ADDR: ${CONSUL_HTTP_ADDR}
+      VAULT_ADDR: ${VAULT_ADDR}
+    volumes:
+      - ./srv:/srv
+      - ./.docker/cert:/cert
+      - ./.docker/nomad/consul.service:/etc/systemd/system/consul.service
+      - ./.docker/nomad/master.hcl:/etc/nomad.d/nomad.hcl
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.${PROJECT_NAME}.rule=Host(`${PROJECT_URL}`)
+      - traefik.http.routers.${PROJECT_NAME}.tls=true
+      - traefik.http.routers.${PROJECT_NAME}.entrypoints=websecure
+      - traefik.http.services.${PROJECT_NAME}.loadbalancer.server.port=4646
+#      - traefik.http.middlewares.${PROJECT_NAME}.headers.SSLRedirect=true
+#      - traefik.http.middlewares.${PROJECT_NAME}.headers.STSSeconds=315360000
+#      - traefik.http.middlewares.${PROJECT_NAME}.headers.browserXSSFilter=true
+#      - traefik.http.middlewares.${PROJECT_NAME}.headers.contentTypeNosniff=true
+#      - traefik.http.middlewares.${PROJECT_NAME}.headers.forceSTSHeader=true
+#      - traefik.http.middlewares.${PROJECT_NAME}.headers.SSLHost=${PROJECT_DOMAIN_NAME}
+#      - traefik.http.middlewares.${PROJECT_NAME}.headers.STSIncludeSubdomains=true
+#      - traefik.http.middlewares.${PROJECT_NAME}.headers.STSPreload=true
+#      - traefik.http.routers.${PROJECT_NAME}.middlewares=${PROJECT_NAME}@docker
+    networks:
+      - traefik-network
+      - cluster
+
+  worker_01:
+    hostname: worker-01
+    container_name: ${PROJECT_NAME}-worker-01
+    image: hashicorp/nomad:1.10
+    tty: true
+    cgroup: host
+    command: agent -config=/etc/nomad.d/nomad.hcl
+    privileged: true
+    volumes:
+      - ./.docker/nomad/worker.hcl:/etc/nomad.d/nomad.hcl
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - cluster
+
+  worker_02:
+    hostname: worker-02
+    container_name: ${PROJECT_NAME}-worker-02
+    image: hashicorp/nomad:1.10
+    tty: true
+    cgroup: host
+    command: agent -config=/etc/nomad.d/nomad.hcl
+    privileged: true
+    volumes:
+      - ./.docker/nomad/worker.hcl:/etc/nomad.d/nomad.hcl
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - cluster
+
+networks:
+  cluster:
+  traefik-network:
+    external: true
